@@ -213,8 +213,8 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 **Bria Godfrey**
 - Portfolio: [briabytes.com](https://briabytes.com)
-- GitHub: [@yourusername](https://github.com/briakgodfrey
-- LinkedIn: [Your LinkedIn](https://linkedin.com/in/briakgodfrey)
+- GitHub: (https://github.com/briakgodfrey
+- LinkedIn: (https://linkedin.com/in/briakgodfrey)
 
 ## 🙏 Acknowledgments
 
