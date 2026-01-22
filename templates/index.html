@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lucky for Life Analyzer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header>
+        <h1>🎰 Lucky for Life Analyzer</h1>
+        <p>Data-Driven Lottery Analysis & Strategy Optimization</p>
+    </header>
+
+    <div class="container">
+        <!-- Navigation -->
+        <nav class="tabs">
+            <button class="tab-button active" onclick="showTab('dashboard')">Dashboard</button>
+            <button class="tab-button" onclick="showTab('recommendations')">Recommendations</button>
+            <button class="tab-button" onclick="showTab('backtest')">Strategy Backtest</button>
+            <button class="tab-button" onclick="showTab('tickets')">My Tickets</button>
+        </nav>
+
+        <!-- Dashboard Tab -->
+        <div id="dashboard" class="tab-content active">
+            <h2>Statistics Overview</h2>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>🔥 Top 10 Hot Numbers</h3>
+                    <div id="hot-numbers" class="number-list">Loading...</div>
+                </div>
+                
+                <div class="stat-card">
+                    <h3>❄️ Bottom 10 Cold Numbers</h3>
+                    <div id="cold-numbers" class="number-list">Loading...</div>
+                </div>
+                
+                <div class="stat-card">
+                    <h3>📈 Recent Hot (Last 50 Draws)</h3>
+                    <div id="recent-hot" class="number-list">Loading...</div>
+                </div>
+                
+                <div class="stat-card">
+                    <h3>🍀 Hot Lucky Balls</h3>
+                    <div id="lucky-hot" class="number-list">Loading...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recommendations Tab -->
+        <div id="recommendations" class="tab-content">
+            <h2>Number Recommendations</h2>
+            
+            <div class="strategy-selector">
+                <button onclick="getRecommendation('recent_hot')" class="strategy-btn recommended">
+                    Recent Hot<br><span class="roi-badge">+28% ROI</span>
+                </button>
+                <button onclick="getRecommendation('balanced')" class="strategy-btn">Balanced Mix</button>
+                <button onclick="getRecommendation('hot')" class="strategy-btn">All-Time Hot</button>
+                <button onclick="getRecommendation('overdue')" class="strategy-btn">Overdue</button>
+                <button onclick="getRecommendation('jackpot_spread')" class="strategy-btn">Jackpot Spread</button>
+            </div>
+            
+            <div id="recommendation-result" class="result-card" style="display: none;">
+                <h3 id="rec-strategy"></h3>
+                <div class="numbers-display">
+                    <div class="main-numbers" id="rec-numbers"></div>
+                    <div class="lucky-ball-display">
+                        Lucky Ball: <span id="rec-lucky"></span>
+                    </div>
+                </div>
+                <p id="rec-reasoning"></p>
+                <button onclick="saveTicket()" class="save-btn">💾 Save This Ticket</button>
+            </div>
+        </div>
+
+        <!-- Backtest Tab -->
+        <div id="backtest" class="tab-content">
+            <h2>Strategy Performance Backtest</h2>
+            
+            <div class="backtest-controls">
+                <label>Lookback Draws:</label>
+                <select id="backtest-lookback">
+                    <option value="50">50 draws</option>
+                    <option value="100" selected>100 draws</option>
+                    <option value="200">200 draws</option>
+                </select>
+                <button onclick="runBacktest()" class="run-btn">▶️ Run Backtest</button>
+            </div>
+            
+            <div id="backtest-results" style="display: none;">
+                <div class="backtest-grid" id="backtest-grid"></div>
+            </div>
+        </div>
+
+        <!-- My Tickets Tab -->
+        <div id="tickets" class="tab-content">
+            <h2>My Saved Tickets</h2>
+            <div id="tickets-list"></div>
+        </div>
+    </div>
+
+    <footer>
+        <p>⚠️ For educational purposes only. Lottery games are games of chance.</p>
+        <p>Built by Bria Godfrey | <a href="https://briabytes.com" target="_blank">briabytes.com</a></p>
+    </footer>
+
+    <script>
+        let currentRecommendation = null;
+
+        // Tab switching
+        function showTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+            
+            // Load data for tab
+            if (tabName === 'dashboard') loadStats();
+            if (tabName === 'tickets') loadTickets();
+        }
+
+        // Load statistics
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/stats');
+                const data = await response.json();
+                
+                // Hot numbers
+                document.getElementById('hot-numbers').innerHTML = data.hot_numbers
+                    .map(n => `<div class="number-item"><span class="number">${n.number}</span> (${n.count})</div>`)
+                    .join('');
+                
+                // Cold numbers
+                document.getElementById('cold-numbers').innerHTML = data.cold_numbers
+                    .map(n => `<div class="number-item"><span class="number">${n.number}</span> (${n.count})</div>`)
+                    .join('');
+                
+                // Recent hot
+                document.getElementById('recent-hot').innerHTML = data.recent_hot
+                    .map(n => `<div class="number-item"><span class="number">${n.number}</span> (${n.count})</div>`)
+                    .join('');
+                
+                // Lucky hot
+                document.getElementById('lucky-hot').innerHTML = data.lucky_hot
+                    .map(n => `<div class="number-item"><span class="number lucky">${n.number}</span> (${n.count})</div>`)
+                    .join('');
+                    
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        // Get recommendation
+        async function getRecommendation(strategy) {
+            try {
+                const response = await fetch(`/api/recommendations/${strategy}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentRecommendation = data;
+                    
+                    document.getElementById('rec-strategy').textContent = strategy.toUpperCase().replace('_', ' ');
+                    document.getElementById('rec-numbers').innerHTML = data.numbers
+                        .map(n => `<span class="number-ball">${n}</span>`)
+                        .join('');
+                    document.getElementById('rec-lucky').innerHTML = `<span class="lucky-ball">${data.lucky_ball}</span>`;
+                    document.getElementById('rec-reasoning').textContent = data.strategy;
+                    document.getElementById('recommendation-result').style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error getting recommendation:', error);
+            }
+        }
+
+        // Run backtest
+        async function runBacktest() {
+            const lookback = document.getElementById('backtest-lookback').value;
+            const resultsDiv = document.getElementById('backtest-results');
+            const gridDiv = document.getElementById('backtest-grid');
+            
+            gridDiv.innerHTML = '<p class="loading">Running backtest...</p>';
+            resultsDiv.style.display = 'block';
+            
+            try {
+                const response = await fetch(`/api/backtest?lookback=${lookback}`);
+                const data = await response.json();
+                
+                gridDiv.innerHTML = '';
+                
+                Object.entries(data).forEach(([strategy, results]) => {
+                    const card = document.createElement('div');
+                    card.className = 'backtest-card';
+                    card.innerHTML = `
+                        <h3>${strategy.toUpperCase()}</h3>
+                        <div class="metric">
+                            <span>ROI:</span>
+                            <span class="${results.roi > 0 ? 'positive' : 'negative'}">${results.roi > 0 ? '+' : ''}${results.roi.toFixed(1)}%</span>
+                        </div>
+                        <div class="metric">
+                            <span>Net:</span>
+                            <span class="${results.net > 0 ? 'positive' : 'negative'}">$${results.net > 0 ? '+' : ''}${results.net.toFixed(2)}</span>
+                        </div>
+                        <div class="metric">
+                            <span>Win Rate:</span>
+                            <span>${results.win_rate.toFixed(1)}%</span>
+                        </div>
+                        <div class="metric">
+                            <span>Wins:</span>
+                            <span>${results.wins}/${results.tickets}</span>
+                        </div>
+                    `;
+                    gridDiv.appendChild(card);
+                });
+                
+            } catch (error) {
+                console.error('Error running backtest:', error);
+                gridDiv.innerHTML = '<p class="error">Error running backtest. Please try again.</p>';
+            }
+        }
+
+        // Save ticket
+        async function saveTicket() {
+            if (!currentRecommendation) return;
+            
+            const date = new Date().toISOString().split('T')[0];
+            
+            try {
+                const response = await fetch('/api/tickets', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        date: date,
+                        numbers: currentRecommendation.numbers,
+                        lucky_ball: currentRecommendation.lucky_ball,
+                        strategy: document.getElementById('rec-strategy').textContent.toLowerCase().replace(' ', '_')
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    alert('✅ Ticket saved successfully!');
+                }
+            } catch (error) {
+                console.error('Error saving ticket:', error);
+                alert('❌ Error saving ticket');
+            }
+        }
+
+        // Load tickets
+        async function loadTickets() {
+            try {
+                const response = await fetch('/api/tickets');
+                const data = await response.json();
+                
+                const ticketsDiv = document.getElementById('tickets-list');
+                
+                if (data.tickets.length === 0) {
+                    ticketsDiv.innerHTML = '<p class="empty-state">No tickets saved yet. Generate recommendations and save them!</p>';
+                    return;
+                }
+                
+                ticketsDiv.innerHTML = data.tickets.map((ticket, index) => `
+                    <div class="ticket-card">
+                        <h4>Ticket #${index + 1} - ${ticket.date_played}</h4>
+                        <div class="ticket-numbers">
+                            ${ticket.numbers.map(n => `<span class="number-ball">${n}</span>`).join('')}
+                            <span class="lucky-ball">${ticket.lucky_ball}</span>
+                        </div>
+                        <p><strong>Strategy:</strong> ${ticket.strategy}</p>
+                        <p><strong>Cost:</strong> $${ticket.cost.toFixed(2)}</p>
+                    </div>
+                `).join('');
+                
+            } catch (error) {
+                console.error('Error loading tickets:', error);
+            }
+        }
+
+        // Load initial data
+        loadStats();
+    </script>
+</body>
+</html>
